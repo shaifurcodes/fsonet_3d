@@ -4,7 +4,7 @@ author: Md Shaifur Rahman (mdsrahman@cs.stonybrook.edu)
 '''
 
 
-class CityGMLParser(object):
+class CityGML3DBuildingParser(object):
     '''
     Given a citygml file (.gml) this class
         1. parses the 3D building structure and save it
@@ -14,10 +14,23 @@ class CityGMLParser(object):
         4. save the above graphs for future flow-level computation of FSONet
     '''
     def __init__(self):
+        print "CityGML3DBuildingParser object created.."
+        return
+
+    def loadGMLFile(self, input_gml_filepath, citygml_building_namespace):
+        return
+
+    def save3DBuildingData(self, output_building_filepath):
+        return
+
+    def load3DBuildingData(self, input_building_filepath):
+        return
+
+    def visualizeBuildingData(self, input_building_filepath):
         return
 
 
+
+
 if __name__ == '__main__':
-    print "CityGML  Test.."
-    '''
-    '''
+    cg3b = CityGML3DBuildingParser()
