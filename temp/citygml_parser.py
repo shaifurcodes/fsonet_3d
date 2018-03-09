@@ -6,12 +6,8 @@ from lxml import etree
 
 class CityGML3DBuildingParser(object):
     '''
-    Given a citygml file (.gml) this class
-        1. parses the 3D building structure and save it
-        2. visualize the 3D structures (not recommended for large swathes of area)
-        3. calculate the line-of-sight assuming one FSO antenna at the roof-top of everybuilding
-        4. calculate coverage assuming one base-station at the ground level of every building
-        4. save the above graphs for future flow-level computation of FSONet
+    Given a citygml file (.gml), this class parses the 3D building structure and save it
+
     '''
     def __init__(self):
         print "CityGML3DBuildingParser object created.."
@@ -212,10 +208,10 @@ def driverCityGML3DBuildingParser():
     output_building_filepath = './world_trade_center'
     center_x = 980567.517053
     center_y = 198976.869809
-    spread_x = 300
-    spread_y = 300
+    spread_x = 1000
+    spread_y = 1000
     max_allowed_building = 100
-    max_allowed_surface = 1000
+    max_allowed_surface = 10000
 
     cg3b = CityGML3DBuildingParser()
     cg3b.parse3DBuildingData(
