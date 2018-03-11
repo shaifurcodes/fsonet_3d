@@ -153,7 +153,7 @@ class CityGML3DBuildingParser(object):
                 if event == 'end' and elem.tag == "{%s}Building" % self.citygml_building_namespace:
                     isBuildingIncluded = True
                     cur_building_surface_list = []
-                    for surfaceType in ['WallSurface', 'RoofSurface', 'OuterFloorSurface', 'OuterCeilingSurface', 'ClosureSurface']:
+                    for surfaceType in ['WallSurface', 'RoofSurface', 'OuterFloorSurface', 'OuterCeilingSurface', 'ClosureSurface', 'GroundSurface']:
                         xpath_str = './/{'+self.citygml_building_namespace+'}'+surfaceType
                         for wall in elem.findall(xpath_str):
                             for posList in wall.findall(".//{%s}posList" % self.gml_namespace):
@@ -210,8 +210,8 @@ def driverCityGML3DBuildingParser():
     center_y = 198976.869809
     spread_x = 1000
     spread_y = 1000
-    max_allowed_building = 100
-    max_allowed_surface = 10000
+    max_allowed_building = 20
+    max_allowed_surface = 20000
 
     cg3b = CityGML3DBuildingParser()
     cg3b.parse3DBuildingData(
