@@ -99,7 +99,7 @@ class DynamicGraphGenerator(object):
         for bindx, bldg_surfs in enumerate(self.bldgs):
             for surf in bldg_surfs:
                 ax.add_collection3d(mpl3.art3d.Line3DCollection([surf], colors='k', linewidths=1.0))
-                ax.add_collection3d(mpl3.art3d.Poly3DCollection([surf], facecolors='w'))
+                #ax.add_collection3d(mpl3.art3d.Poly3DCollection([surf], facecolors='w'))
         ax.set_xlim3d(left=0-500,   right=self.max_x+500)
         ax.set_ylim3d(bottom=0-500, top=self.max_y+500)
         ax.set_zlim3d(bottom=self.min_z - 5, top=self.max_z+15)
@@ -121,8 +121,9 @@ class DynamicGraphGenerator(object):
         for bbox in self.bldg_bounding_box:
             bldg_surfs = self.getBoundingFaces(bbox[0], bbox[1], bbox[2], bbox[3], bbox[4], bbox[5] )
             for surf in bldg_surfs:
-                ax.add_collection3d(mpl3.art3d.Line3DCollection([surf], colors='k', linewidths=1.0))
-                ax.add_collection3d(mpl3.art3d.Poly3DCollection([surf], facecolors='w'))
+                total_surf_points, _ = surf.shape
+                n = total_surf_points - 1
+                ax.plot(surf[:,0], surf[:, 1], surf[:, 2], linestyle = '-', color='k', linewidth = 1.0)
         if showNormals:
             for n_surfs in self.bldg_bbox_nsurf:
                 surf_count, _ = n_surfs.shape
@@ -155,7 +156,7 @@ class DynamicGraphGenerator(object):
         7: xmax, ymax, zmax
         8: xmin, ymax, zmax
         face_1: 1, 2, 3, 4
-        face_2: 2, 6, 7, 8
+        face_2: 2, 6, 7, 3
         face_3: 6, 5, 8, 7
         face_4: 5, 1, 4, 8
         face_5: 7, 8, 4, 3
@@ -174,7 +175,7 @@ class DynamicGraphGenerator(object):
         p8 = [xmin, ymax, zmax]
 
         face_1 = np.array( [ p1, p2, p3, p4 ], dtype= np.float )
-        face_2 = np.array( [ p2, p6, p7, p8 ], dtype= np.float )
+        face_2 = np.array( [ p2, p6, p7, p3 ], dtype= np.float )
         face_3 = np.array( [ p6, p5, p8, p7 ], dtype= np.float )
         face_4 = np.array( [ p5, p1, p4, p8 ], dtype= np.float )
         face_5 = np.array( [ p7, p8, p4, p3 ], dtype= np.float )
@@ -235,7 +236,7 @@ class DynamicGraphGenerator(object):
             bldg_nsurf[face_indx, :] = px, py, pz, nx, ny, nz
         return bldg_nsurf
 
-    def calculateBBoxSurfaceNormals(self, bindx):
+    def calculateBBoxSurfaceRepresentation(self, bindx):
         xmin, xmax, ymin, ymax, zmin, zmax = self.bldg_bounding_box[bindx]
         bbox_faces = self.getBoundingFaces(xmin, xmax, ymin, ymax, zmin, zmax)
         cx, cy, cz = self.getCentroidFromBoundingBox(xmin, xmax, ymin, ymax, zmin, zmax)
@@ -244,27 +245,56 @@ class DynamicGraphGenerator(object):
         self.bldg_bbox_nsurf[bindx] = bldg_nsurf
         return
 
-    def calculateBldgSurfaceNormals(self, bindx):
-        xmin, xmax, ymin, ymax, zmin, zmax = self.bldg_bounding_box[bindx]
-        cx, cy, cz = self.getCentroidFromBoundingBox(xmin, xmax, ymin, ymax, zmin, zmax)
-        interior_point = [cx, cy, 0.1] #TODO: find a better interior point that lies inside the volume
-
+    def calculateBldgSurfaceRepresentation(self, bindx):
+        # xmin, xmax, ymin, ymax, zmin, zmax = self.bldg_bounding_box[bindx]
+        # cx, cy, cz = self.getCentroidFromBoundingBox(xmin, xmax, ymin, ymax, zmin, zmax)
+        # interior_point = [cx, cy, cz]
+        interior_point = None
         bldg_faces = self.bldgs[bindx]
         bldg_nsurf = self.getSurfaceNormalRepresentation(faceList=bldg_faces, interior_point=interior_point)
         self.bldg_nsurf[bindx] = bldg_nsurf
         return
 
-    def getBldgSurfaceNormals(self, bindx):
+    def getBldgSurfaceRepresentation(self, bindx):
         if self.bldg_nsurf[bindx] is None:
-            self.calculateBldgSurfaceNormals(bindx)
+            self.calculateBldgSurfaceRepresentation(bindx)
         return self.bldg_nsurf[bindx]
 
-    def getBBoxSurfaceNormals(self, bindx):
+    def getBBoxSurfaceRepresentation(self, bindx):
         if self.bldg_bbox_nsurf[bindx] is None:
-            self.calculateBBoxSurfaceNormals(bindx)
+            self.calculateBBoxSurfaceRepresentation(bindx)
         return self.bldg_bbox_nsurf[bindx]
 
-    def isIntersecting(self, p0, p1, surf_pn):
+
+    def isSurfaceIntersecting(self, p0, p1, surf_n):
+        t_E = 0.0
+        t_L = 1.0
+        dS = p1 - p0
+        sx, sy, sz, nx, ny, nz = surf_n
+        sn = np.array([nx, ny, nz])
+        p0_to_s = np.array([sx, sy, sz]) - p0
+        n = np.dot(p0_to_s, sn)
+        d = np.dot(dS, sn)
+        if d==0.0: #parallel to face, assuming non-intersecting
+            return False
+        t = n / d
+        if 0.0 <= t <= 1.0:
+            return  True
+        return False
+
+    def isBuildingBBoxIntersecting(self, p0, p1, bindx):
+        bbox_nsurfs = self.getBBoxSurfaceRepresentation(bindx)
+        return  self.isPolyhedronIntersecting(p0, p1, bbox_nsurfs)
+
+    def isBuildingSurfaceIntersecting(self, p0, p1, bindx):
+        n_surfs = self.getBldgSurfaceRepresentation( bindx)
+        for sindx, n_surf in enumerate(n_surfs):
+            if self.isSurfaceIntersecting(p0, p1, n_surf):
+                #TODO: check whether the intersecting points  lies inside  the n_surf polygon
+                return True
+        return False
+
+    def isPolyhedronIntersecting(self, p0, p1, surf_pn):
         t_E = 0.0
         t_L = 1.0
         dS = p1 - p0
@@ -275,7 +305,7 @@ class DynamicGraphGenerator(object):
             sn = np.array([nx, ny, nz])
             p0_to_s = np.array( [sx, sy, sz] ) - p0
             n =  np.dot(p0_to_s, sn)
-            dS = p1- p0
+            # dS = p1- p0
             d = np.dot(dS, sn)
             if d ==  0.0:
                 if n < 0.0:
@@ -295,10 +325,8 @@ class DynamicGraphGenerator(object):
 
     def isLOS(self, p0, p1):
         for bindx in range(self.total_building):
-            bbox_nsurfs = self.getBBoxSurfaceNormals(bindx)
-            if self.isIntersecting(p0, p1, bbox_nsurfs):
-                nsurfs = self.getBldgSurfaceNormals(bindx)
-                if self.isIntersecting(p0, p1, nsurfs):
+            if self.isBuildingBBoxIntersecting(p0, p1,bindx):
+                if self.isBuildingSurfaceIntersecting(p0, p1, bindx):
                     return False
         return True
 
@@ -318,12 +346,12 @@ class DynamicGraphGenerator(object):
 
 def driverDynamicGraphGenerator():
     input_file = 'world_trade_center'
-    fso_tower_height_ft = 30.0
+    fso_tower_height_ft = 15.0
 
     dgg = DynamicGraphGenerator()
     dgg.load3DBuildingData(input_file)
     dgg.addFSOTowers(tower_height_ft=fso_tower_height_ft)
-    dgg.calculateLOS(fso_tx_indx=1)
+    dgg.calculateLOS(fso_tx_indx=16)
     #dgg.visualizeBuildingBBox(showNormals=False, showFSOLinks = True)
 
     dgg.visualize3Dbuilding(showFsoTowers=True)
