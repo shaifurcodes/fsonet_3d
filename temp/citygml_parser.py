@@ -105,7 +105,6 @@ class CityGML3DBuildingParser(object):
 
         return surf_count, min_x, max_x, min_y, max_y, min_z, max_z
 
-
     def getOutputBuildingFileText(self, surfaceList):
         surf_count, min_x, max_x, min_y, max_y, min_z, max_z = self.getBoundingBox(surfaceList, updateGlobalBoundary=True)
         self.total_building += 1
@@ -122,7 +121,6 @@ class CityGML3DBuildingParser(object):
                 fileText = fileText+str(x)+", "+str(y)+", "+str(z)
             fileText = fileText + "\n"
         return fileText
-
 
     def isObjectCountExceeded(self):
         if self.total_surface >= self.max_allowed_surface:
@@ -208,10 +206,10 @@ def driverCityGML3DBuildingParser():
     output_building_filepath = './world_trade_center'
     center_x = 980567.517053
     center_y = 198976.869809
-    spread_x = 1000
-    spread_y = 1000
-    max_allowed_building = 20
-    max_allowed_surface = 20000
+    spread_x = 800
+    spread_y = 800
+    max_allowed_building = 30
+    max_allowed_surface = 200000
 
     cg3b = CityGML3DBuildingParser()
     cg3b.parse3DBuildingData(
@@ -225,6 +223,7 @@ def driverCityGML3DBuildingParser():
                             spread_y = spread_y,
                             max_allowed_building=max_allowed_building,
                             max_allowed_surface=max_allowed_surface)
+    return
 
 if __name__ == '__main__':
     driverCityGML3DBuildingParser()

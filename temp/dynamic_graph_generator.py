@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d as mpl3
 import sys
+from timeit import default_timer as mytimer
+import cProfile
 
 class DynamicGraphGenerator(object):
     '''
@@ -32,7 +34,11 @@ class DynamicGraphGenerator(object):
         self.MIN_X, self.MAX_X,\
         self.MIN_Y, self.MAX_Y,\
         self.MIN_Z, self.MAX_Z = range(6)
-
+        self.bldg_hash = []
+        self.bldg_hash_xcount = 0
+        self.bldg_hash_ycount = 0
+        self.bldg_hash_xdist = 0.0
+        self.bldg_hash_ydist = 0.0
         return
 
     def loadBldgFile(self, input_file):
@@ -114,7 +120,7 @@ class DynamicGraphGenerator(object):
                 ax.plot( [self.fso_tx[i, 0], self.fso_tx[j, 0] ], \
                          [self.fso_tx[i, 1], self.fso_tx[j, 1]], \
                          [self.fso_tx[i, 2], self.fso_tx[j, 2]],
-                         linestyle='-', color='r', linewidth=1 )
+                         linestyle=':', color='r', linewidth=0.2 )
                 if deBugShowAllLinks:
                     for k in range(len(self.fso_tx)):
                         if i != k:
@@ -300,7 +306,6 @@ class DynamicGraphGenerator(object):
         return  self.isPolyhedronIntersecting(p0, p1, bbox_nsurfs)
 
     def isPointInsidePolygon(self, ip, surf, n_surf):
-        #TODO: complete
         _, _, _, nx, ny, nz = n_surf
         n = np.array([nx, ny, nz], dtype = np.float)
         u = surf[1] - surf[0]
@@ -318,36 +323,6 @@ class DynamicGraphGenerator(object):
 
     def getBldgSurfaceAs2DPolygon(self, bindx, sindx):
         return  zip(self.bldgs[bindx][sindx][:, 0],self.bldgs[bindx][sindx][:, 1])
-
-    def debugVisualizeLinePolygon(self, p0, p1, bindx, sindx = None):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        surfs = []
-        if sindx is not None:
-            surfs.append(self.bldgs[bindx][sindx])
-        else:
-            surfs = self.bldgs[bindx]
-        for surf in surfs:
-            #ax.add_collection3d(mpl3.art3d.Line3DCollection([surf], colors='k', linewidths=1.0))
-            ax.plot(surf[:,0], surf[:,1], surf[:, 2], linestyle ='-', color='k', linewidth=1.0)
-            #--now close the polygon
-            n = len(surf) - 1
-            x1, y1, z1, xn, yn, zn = surf[ 0, 0], surf[ 0, 1], surf[ 0, 2], \
-                                     surf[ n, 0], surf[ n, 1], surf[ n, 2]
-            ax.plot([x1, xn], [y1, yn], [z1, zn], linestyle ='-', color='k', linewidth=1.0) #TODO: Remove the comment to close the polygon
-
-        ax.plot([ p0[0], p1[0] ], [ p0[1], p1[1] ], [ p0[2], p1[2] ],\
-                   linestyle='-', color='r', linewidth=1.0)
-
-
-        ax.set_xlim3d(left=0-500,   right=self.max_x+500)
-        ax.set_ylim3d(bottom=0-500, top=self.max_y+500)
-        ax.set_zlim3d(bottom=self.min_z - 5, top=self.max_z+15)
-
-        plt.show()
-        #plt.savefig('./test.png',  dpi = 300)
-        plt.close()
-        return
 
     def isRayIntersectingLineSegment(self, p0, u, q0, v, n):
         perp_v = np.cross(v, n)
@@ -432,10 +407,20 @@ class DynamicGraphGenerator(object):
         return True
 
     def isLOS(self, p0, p1):
-        for bindx in range(self.total_building):
+        start_t = mytimer()
+        stat_bbox_check = 0
+        stat_bldg_check = 0
+
+        ibldgs_list = self.getIntersectingBuildingIDs(p0, p1)
+        for bindx in ibldgs_list:
+            stat_bbox_check += 1
             if self.isBuildingBBoxIntersecting(p0, p1,bindx):
+                stat_bldg_check += 1
                 if self.isBuildingSurfaceIntersecting(p0, p1, bindx):
+                    print "\t bbox#, bldg#, etime: ", stat_bbox_check, stat_bldg_check, np.round((mytimer() - start_t), 3),"sec"
                     return False
+
+        print "\t bbox#, bldg#, etime: ", stat_bbox_check, stat_bldg_check, np.round((mytimer() - start_t), 3), "sec"
         return True
 
     def calculateLOS(self, fso_tx_indx = None):
@@ -446,24 +431,129 @@ class DynamicGraphGenerator(object):
         for i in tx_indx_range:
             p0 = self.fso_tx[ i, :]
             for j in range(total_fso_tx):
+                print "DEBUG:calculating LOS for i,j: ",i,j
                 p1 = self.fso_tx[j, :]
                 if self.isLOS(p0, p1):
                     self.fso_los.append((i,j))
         return
 
+    def hashXYBuilding(self, building_per_bin):
+        ratio_xy = 1.0*np.ceil(self.max_x) / np.ceil( self.max_y )
+        self.bldg_hash_ycount = int(np.ceil( np.sqrt(1.0 * self.total_building / (building_per_bin * ratio_xy)) ) )
+        self.bldg_hash_xcount = int(np.ceil(ratio_xy*self.bldg_hash_ycount))
+        self.bldg_hash_xdist = 1.0 * np.ceil(self.max_x) / self.bldg_hash_xcount
+        self.bldg_hash_ydist = 1.0 * np.ceil(self.max_y) / self.bldg_hash_ycount
+        #--------init hash table------#
+        for i in range(self.bldg_hash_xcount+1):
+            cur_hash = []
+            for j in range(self.bldg_hash_ycount+1):
+                cur_hash.append([])
+            self.bldg_hash.append(cur_hash)
+
+        for bindx, bbox in enumerate( self.bldg_bounding_box ):
+            xmin, xmax, ymin, ymax, _, _ = bbox
+            grid_x_min = int( xmin / self.bldg_hash_xdist)
+            grid_x_max = int( xmax / self.bldg_hash_xdist)
+            grid_y_min = int( ymin / self.bldg_hash_ydist)
+            grid_y_max = int( ymax / self.bldg_hash_ydist)
+            for i in range(grid_x_min, grid_x_max+1):
+                for j in range(grid_y_min, grid_y_max+1):
+                    self.bldg_hash[i][j].append(bindx)
+        return
+
+    def findVisitedGrids(self, x1, y1, x2, y2):
+        points = []
+
+        dx = x2 - x1
+        dy = y2 - y1
+        x = x1
+        y = y1
+
+        xstep = 1
+        ystep = 1
+
+        points.append((x1, y1))
+        if dy < 0:
+            ystep = -1
+            dy = -dy
+
+        if dx < 0:
+            xstep = -1
+            dx = -dx
+
+        ddy = 2 * dy
+        ddx = 2 * dx
+        if ddx >= ddy:
+            errorprev = error = dx
+            for i in range(dx):
+                x += xstep
+                error += ddy
+                if error > ddx:
+                    y += ystep
+                    error -= ddx
+                    if error + errorprev < ddx:
+                        points.append((x, y - ystep))
+                    elif error + errorprev > ddx:
+                        points.append((x - xstep, y))
+                    else:
+                        points.append((x, y - ystep))
+                        points.append((x - xstep, y))
+                points.append((x, y))
+                errorprev = error
+        else:
+            errorprev = error = dy
+            for i in range(dy):
+                y += ystep
+                error += ddx
+                if error > ddy:
+                    x += xstep
+                    error -= ddy
+                    if error + errorprev < ddy:
+                        points.append((x - xstep, y))
+                    elif error + errorprev > ddy:
+                        points.append((x, y - ystep))
+                    else:
+                        points.append((x - xstep, y))
+                        points.append((x, y - ystep))
+                points.append((x, y))
+                errorprev = error
+        return points
+
+    def getIntersectingBuildingIDs(self, p0, p1):
+        #TODO: test code..
+        x0, y0, _ = p0
+        x1, y1, _ = p1
+        p0_gridx, p0_gridy = int(x0 / self.bldg_hash_xdist), int(y0 / self.bldg_hash_ydist)
+        p1_gridx, p1_gridy = int(x1 / self.bldg_hash_xdist), int(y1 / self.bldg_hash_ydist)
+        all_grids = self.findVisitedGrids(p0_gridx, p0_gridy, p1_gridx, p1_gridy)
+        visited_bldgs = []
+        for cur_grid in all_grids:
+            i,j = cur_grid
+            cur_bldgs = list(self.bldg_hash[i][j])
+            visited_bldgs += cur_bldgs
+        visited_bldgs_set = list( set(visited_bldgs) )
+        return visited_bldgs_set
 
 def driverDynamicGraphGenerator():
+    start_t = mytimer()
+
     input_file = 'world_trade_center'
     fso_tower_height_ft = 10.0
-
+    building_per_bin = 5
     dgg = DynamicGraphGenerator()
     dgg.load3DBuildingData(input_file)
     dgg.addFSOTowers(tower_height_ft=fso_tower_height_ft)
-    dgg.calculateLOS(fso_tx_indx=16)
+    dgg.hashXYBuilding(building_per_bin=building_per_bin)
+    dgg.calculateLOS(fso_tx_indx=None)
+    print 'Execution time:', np.round((mytimer() - start_t), 3), "seconds"
+    #print "DEBUG: max_x, max_y:",dgg.max_x, dgg.max_y
     #dgg.visualizeBuildingBBox(showNormals=False, showFSOLinks = True)
-
     dgg.visualize3Dbuilding(showFSOLinks=True, deBugShowAllLinks=False)
     return
 
 if __name__ == '__main__':
-    driverDynamicGraphGenerator()
+    profileCode = False
+    if profileCode:
+        cProfile.run('driverDynamicGraphGenerator()', 'expProfile.cprof')
+    else:
+        driverDynamicGraphGenerator()
