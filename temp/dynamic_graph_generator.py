@@ -93,23 +93,36 @@ class DynamicGraphGenerator(object):
             self.fso_los = []
         return
 
-    def visualize3Dbuilding(self, showFsoTowers = False):
+    def visualize3Dbuilding(self, showFSOLinks=False, deBugShowAllLinks=False):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         for bindx, bldg_surfs in enumerate(self.bldgs):
             for surf in bldg_surfs:
-                ax.add_collection3d(mpl3.art3d.Line3DCollection([surf], colors='k', linewidths=1.0))
-                #ax.add_collection3d(mpl3.art3d.Poly3DCollection([surf], facecolors='w'))
+                #ax.add_collection3d(mpl3.art3d.Line3DCollection([surf], colors='k', linewidths=1.0))
+                ax.plot(surf[:,0], surf[:,1], surf[:, 2], linestyle ='-', color='k', linewidth=1.0)
+                #--now close the polygon
+                n = len(surf) - 1
+                x1, y1, z1, xn, yn, zn = surf[ 0, 0], surf[ 0, 1], surf[ 0, 2], \
+                                         surf[ n, 0], surf[ n, 1], surf[ n, 2]
+                #ax.plot([x1, xn], [y1, yn], [z1, zn], linestyle ='-', color='k', linewidth=1.0) #TODO: Remove the comment to close the polygon
+
         ax.set_xlim3d(left=0-500,   right=self.max_x+500)
         ax.set_ylim3d(bottom=0-500, top=self.max_y+500)
         ax.set_zlim3d(bottom=self.min_z - 5, top=self.max_z+15)
-        if showFsoTowers:
+        if showFSOLinks:
             for i,j in self.fso_los:
-                    ax.plot( [self.fso_tx[i, 0], self.fso_tx[j, 0] ], \
-                             [self.fso_tx[i, 1], self.fso_tx[j, 1]], \
-                             [self.fso_tx[i, 2], self.fso_tx[j, 2]],
-                             linestyle='-', color='r', linewidth=1
-                             )
+                ax.plot( [self.fso_tx[i, 0], self.fso_tx[j, 0] ], \
+                         [self.fso_tx[i, 1], self.fso_tx[j, 1]], \
+                         [self.fso_tx[i, 2], self.fso_tx[j, 2]],
+                         linestyle='-', color='r', linewidth=1 )
+                if deBugShowAllLinks:
+                    for k in range(len(self.fso_tx)):
+                        if i != k:
+                            ax.plot([self.fso_tx[i, 0], self.fso_tx[k, 0]], \
+                                    [self.fso_tx[i, 1], self.fso_tx[k, 1]], \
+                                    [self.fso_tx[i, 2], self.fso_tx[k, 2]],
+                                    linestyle=':', color='b', linewidth=0.5 )
+
         plt.show()
         #plt.savefig('./test.png',  dpi = 300)
         plt.close()
@@ -265,7 +278,6 @@ class DynamicGraphGenerator(object):
             self.calculateBBoxSurfaceRepresentation(bindx)
         return self.bldg_bbox_nsurf[bindx]
 
-
     def isSurfaceIntersecting(self, p0, p1, surf_n):
         t_E = 0.0
         t_L = 1.0
@@ -276,22 +288,118 @@ class DynamicGraphGenerator(object):
         n = np.dot(p0_to_s, sn)
         d = np.dot(dS, sn)
         if d==0.0: #parallel to face, assuming non-intersecting
-            return False
+            return False, None
         t = n / d
         if 0.0 <= t <= 1.0:
-            return  True
-        return False
+            intersecting_point = p0+t*dS
+            return  True, intersecting_point
+        return False, None
 
     def isBuildingBBoxIntersecting(self, p0, p1, bindx):
         bbox_nsurfs = self.getBBoxSurfaceRepresentation(bindx)
         return  self.isPolyhedronIntersecting(p0, p1, bbox_nsurfs)
 
+    def isPointInsidePolygon(self, ip, surf, n_surf):
+        #TODO: complete
+        _, _, _, nx, ny, nz = n_surf
+        n = np.array([nx, ny, nz], dtype = np.float)
+        u = surf[1] - surf[0]
+        total_points = len(surf)
+        intersection_count = 0
+        for i, p1 in enumerate(surf):
+            j = (i+1)%total_points
+            p2 = surf[j]
+            v = p2-p1
+            if self.isRayIntersectingLineSegment(ip,u,p1,v,n):
+                intersection_count+=1
+        if intersection_count%2==0:
+            return  False
+        return True
+
+    def getBldgSurfaceAs2DPolygon(self, bindx, sindx):
+        return  zip(self.bldgs[bindx][sindx][:, 0],self.bldgs[bindx][sindx][:, 1])
+
+    def debugVisualizeLinePolygon(self, p0, p1, bindx, sindx = None):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        surfs = []
+        if sindx is not None:
+            surfs.append(self.bldgs[bindx][sindx])
+        else:
+            surfs = self.bldgs[bindx]
+        for surf in surfs:
+            #ax.add_collection3d(mpl3.art3d.Line3DCollection([surf], colors='k', linewidths=1.0))
+            ax.plot(surf[:,0], surf[:,1], surf[:, 2], linestyle ='-', color='k', linewidth=1.0)
+            #--now close the polygon
+            n = len(surf) - 1
+            x1, y1, z1, xn, yn, zn = surf[ 0, 0], surf[ 0, 1], surf[ 0, 2], \
+                                     surf[ n, 0], surf[ n, 1], surf[ n, 2]
+            ax.plot([x1, xn], [y1, yn], [z1, zn], linestyle ='-', color='k', linewidth=1.0) #TODO: Remove the comment to close the polygon
+
+        ax.plot([ p0[0], p1[0] ], [ p0[1], p1[1] ], [ p0[2], p1[2] ],\
+                   linestyle='-', color='r', linewidth=1.0)
+
+
+        ax.set_xlim3d(left=0-500,   right=self.max_x+500)
+        ax.set_ylim3d(bottom=0-500, top=self.max_y+500)
+        ax.set_zlim3d(bottom=self.min_z - 5, top=self.max_z+15)
+
+        plt.show()
+        #plt.savefig('./test.png',  dpi = 300)
+        plt.close()
+        return
+
+    def isRayIntersectingLineSegment(self, p0, u, q0, v, n):
+        perp_v = np.cross(v, n)
+        d1 = np.dot(perp_v, u)
+        if d1 == 0.0:  # parallel
+            return False
+
+        perp_u = np.cross(u, n)
+
+        w = p0 - q0
+        s = -np.dot(perp_v, w) / d1
+        if s < 0.0:
+            return False
+
+        d2 = np.dot(perp_u, v)
+        if d2 == 0.0:
+            return False
+
+        t = np.dot(perp_u, w) / np.dot(perp_u, v)
+        if t > 1.0 or t < 0.0:
+            return False
+
+        return True
+
     def isBuildingSurfaceIntersecting(self, p0, p1, bindx):
+        # print "DEBUG: building# ",bindx, "p0: ", p0, " p1: ",p1
+        # self.debugVisualizeLinePolygon(p0, p1, bindx)
+        # show_surfaces = raw_input('Want to show surfaces? (y/n)')
+        # if show_surfaces == 'y':
+        #     show_surfaces = True
+        # else:
+        #     show_surfaces = False
         n_surfs = self.getBldgSurfaceRepresentation( bindx)
         for sindx, n_surf in enumerate(n_surfs):
-            if self.isSurfaceIntersecting(p0, p1, n_surf):
-                #TODO: check whether the intersecting points  lies inside  the n_surf polygon
-                return True
+            #-------------------------debug_trap--------------#
+            #1675.838184, 1815.891546, 44.3
+            # debug_p1 = np.array([1675.838184, 1815.891546, 44.3], dtype=np.float)
+            # if bindx==16 and sindx==43 and np.abs( np.sum(p1-debug_p1) ) < 0.001:
+            #     debug_trap = 1.0
+            #---------------------------------------------------#
+            # if show_surfaces:
+            #     print "\tDEBUG: current bindx, sindx: ", bindx, sindx
+            #     print "\tDEBUG: building# ", bindx, "p0: ", p0, " p1: ", p1
+            #     print "------------------\n\tcurrent surface#", sindx, " vals:\n", self.bldgs[bindx][sindx]
+            #     self.debugVisualizeLinePolygon(p0, p1, bindx, sindx)
+            isIntersecting, iPoint = self.isSurfaceIntersecting(p0, p1, n_surf)
+            if isIntersecting:
+                cur_surf = self.bldgs[bindx][sindx]
+                if self.isPointInsidePolygon(iPoint, cur_surf, n_surf):
+                    #print "\tDEBUG: is intersecting"
+                    return True
+        #print "\tDEBUG: building not intersecting.."
         return False
 
     def isPolyhedronIntersecting(self, p0, p1, surf_pn):
@@ -346,7 +454,7 @@ class DynamicGraphGenerator(object):
 
 def driverDynamicGraphGenerator():
     input_file = 'world_trade_center'
-    fso_tower_height_ft = 15.0
+    fso_tower_height_ft = 10.0
 
     dgg = DynamicGraphGenerator()
     dgg.load3DBuildingData(input_file)
@@ -354,7 +462,7 @@ def driverDynamicGraphGenerator():
     dgg.calculateLOS(fso_tx_indx=16)
     #dgg.visualizeBuildingBBox(showNormals=False, showFSOLinks = True)
 
-    dgg.visualize3Dbuilding(showFsoTowers=True)
+    dgg.visualize3Dbuilding(showFSOLinks=True, deBugShowAllLinks=False)
     return
 
 if __name__ == '__main__':
