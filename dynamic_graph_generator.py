@@ -592,7 +592,7 @@ def driverDynamicGraphGenerator():
                      min_bldg_perimeter_req_ft=building_perimeter_req_ft)
     dgg.calculateLOS(building_per_hash_bin=building_per_bin)
     print 'Execution time:', np.round((mytimer() - start_t), 3), "seconds"
-    #dgg.visualize3Dbuilding(showFSOLinks=False, showFSOTowers=True ) #comment this before final run
+    dgg.visualize3Dbuilding(showFSOLinks=True, showFSOTowers=True ) #comment this before final run
     return
 
 if __name__ == '__main__':
