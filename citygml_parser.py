@@ -122,6 +122,20 @@ class CityGML3DBuildingParser(object):
             fileText = fileText + "\n"
         return fileText
 
+    def getOutputSurfaceFileText(self, surfaceList, buildingID = None ):
+        bindx= buildingID
+        if bindx is None:
+            bindx = self.total_building
+        surf_count = len(surfaceList)
+        fileText = str(bindx)+', '+str(surf_count)+'\n'
+        for cur_surf in surfaceList:
+            for idx, (x,y,z) in enumerate(cur_surf):
+                if idx >0:
+                    fileText = fileText+'; '
+                fileText = fileText+str(x)+", "+str(y)+", "+str(z)
+            fileText = fileText + "\n"
+        return fileText
+
     def isObjectCountExceeded(self):
         if self.total_surface >= self.max_allowed_surface:
             return  True
@@ -146,12 +160,22 @@ class CityGML3DBuildingParser(object):
 
     def iterativeParse3DBuildingData(self):
         context = etree.iterparse(self.input_gml_filepath, events=('start', 'end'))
-        with open(self.output_building_filepath+'.bldg', "w") as output_bldg_file:
+        with open(self.output_building_filepath+'.bldg', "w") as output_bldg_file, \
+             open(self.output_building_filepath+'.grnd', "w") as output_grnd_file, \
+             open(self.output_building_filepath + '.roof', "w") as output_roof_file:
             for event, elem in context:
                 if event == 'end' and elem.tag == "{%s}Building" % self.citygml_building_namespace:
                     isBuildingIncluded = True
+                    grnd_surf_count = 0
                     cur_building_surface_list = []
-                    for surfaceType in ['WallSurface', 'RoofSurface', 'OuterFloorSurface', 'OuterCeilingSurface', 'ClosureSurface', 'GroundSurface']:
+                    cur_building_grnd_list = []
+                    cur_building_roof_list = []
+                    for surfaceType in ['WallSurface', \
+                                        'RoofSurface',\
+                                        'OuterFloorSurface',\
+                                        'OuterCeilingSurface',\
+                                        'ClosureSurface', \
+                                        'GroundSurface']:
                         xpath_str = './/{'+self.citygml_building_namespace+'}'+surfaceType
                         for wall in elem.findall(xpath_str):
                             for posList in wall.findall(".//{%s}posList" % self.gml_namespace):
@@ -161,18 +185,23 @@ class CityGML3DBuildingParser(object):
                                     break # no more surface list
                                 else:
                                     cur_building_surface_list.append(surf_points)
+                                    if surfaceType=='GroundSurface':
+                                        cur_building_grnd_list.append(surf_points)
+                                    if surfaceType=='RoofSurface':
+                                        cur_building_roof_list.append(surf_points)
                             if not isBuildingIncluded:
                                 break #no more of this-type surface
                         if not isBuildingIncluded:
                             break  # no more of any-type surface
                     if isBuildingIncluded:
                         output_bldg_file.write( self.getOutputBuildingFileText(cur_building_surface_list) )
+                        output_grnd_file.write( self.getOutputSurfaceFileText(cur_building_grnd_list) )
+                        output_roof_file.write( self.getOutputSurfaceFileText(cur_building_roof_list)  )
                         if self.isObjectCountExceeded():
                             break
                     self.clearIterParseElement(elem)
         self.writeStatFile()
         return
-
     def parse3DBuildingData(self,
                             map_name,
                             input_gml_filepath,
@@ -201,15 +230,16 @@ class CityGML3DBuildingParser(object):
         return
 
 def driverCityGML3DBuildingParser():
+
     input_gml_filepath = "../data/DA_WISE_GMLs/DA12_3D_Buildings_Merged.gml"
     citygml_building_namespace = "http://www.opengis.net/citygml/building/1.0"
     output_building_filepath = './world_trade_center'
     center_x = 980567.517053
     center_y = 198976.869809
-    spread_x = 800
-    spread_y = 800
-    max_allowed_building = 30
-    max_allowed_surface = 200000
+    spread_x = 1000 #float('inf')
+    spread_y = 1000 #float('inf')
+    max_allowed_building = float('inf')
+    max_allowed_surface = float('inf')
 
     cg3b = CityGML3DBuildingParser()
     cg3b.parse3DBuildingData(
