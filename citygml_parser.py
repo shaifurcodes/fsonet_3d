@@ -18,10 +18,10 @@ class CityGML3DBuildingParser(object):
         self.gml_namespace = "http://www.opengis.net/gml"
 
         self.output_building_filepath = None
-        self.center_x = None
-        self.center_y = None
-        self.spread_x = None
-        self.spread_y = None
+        self.origin_x = None
+        self.origin_y = None
+        self.extent_x = None
+        self.extent_y = None
         self.min_gml_x = float('inf')
         self.max_gml_x = -float('inf')
         self.min_gml_y = float('inf')
@@ -47,14 +47,14 @@ class CityGML3DBuildingParser(object):
         return
 
     def updateMaxMinAllowedGML_XY(self):
-        if      self.center_x is not None \
-            and self.spread_x is not None \
-            and self.center_y is not None \
-            and self.spread_y is not None:
-            self.max_allowed_gml_x = self.center_x + self.spread_x
-            self.min_allowed_gml_x = self.center_x - self.spread_x
-            self.max_allowed_gml_y = self.center_y + self.spread_y
-            self.min_allowed_gml_y = self.center_y - self.spread_y
+        if      self.origin_x is not None \
+            and self.extent_x is not None \
+            and self.origin_y is not None \
+            and self.extent_y is not None:
+            self.max_allowed_gml_x = self.origin_x + self.extent_x
+            self.min_allowed_gml_x = self.origin_x
+            self.max_allowed_gml_y = self.origin_y + self.extent_y
+            self.min_allowed_gml_y = self.origin_y
         return
 
     def parsePosList(self, posListText):
@@ -207,10 +207,10 @@ class CityGML3DBuildingParser(object):
                             input_gml_filepath,
                             citygml_building_namespace,
                             output_building_filepath,
-                            center_x=  None,
-                            center_y = None,
-                            spread_x = None,
-                            spread_y = None,
+                            origin_x=  None,
+                            origin_y = None,
+                            extent_x = None,
+                            extent_y = None,
                             max_allowed_building = None,
                             max_allowed_surface = None
                             ):
@@ -218,10 +218,10 @@ class CityGML3DBuildingParser(object):
         self.input_gml_filepath = input_gml_filepath
         self.citygml_building_namespace = citygml_building_namespace
         self.output_building_filepath = output_building_filepath
-        self.center_x = center_x
-        self.center_y = center_y
-        self.spread_x = spread_x
-        self.spread_y = spread_y
+        self.origin_x = origin_x
+        self.origin_y = origin_y
+        self.extent_x = extent_x
+        self.extent_y = extent_y
         self.max_allowed_building = max_allowed_building
         self.max_allowed_surface = max_allowed_surface
 
@@ -231,13 +231,15 @@ class CityGML3DBuildingParser(object):
 
 def driverCityGML3DBuildingParser():
 
-    input_gml_filepath = "../data/DA_WISE_GMLs/DA12_3D_Buildings_Merged.gml"
+    input_gml_filepath = "./data/DA12_3D_Buildings_Merged.gml"
     citygml_building_namespace = "http://www.opengis.net/citygml/building/1.0"
+    wtc_approx_loc_x = 980567.517053
+    wtc_approx_loc_y = 198976.869809
     output_building_filepath = './world_trade_center'
-    center_x = 980567.517053
-    center_y = 198976.869809
-    spread_x = 1000 #float('inf')
-    spread_y = 1000 #float('inf')
+    origin_x = wtc_approx_loc_x - 1000.0
+    origin_y = wtc_approx_loc_y - 2000.0
+    extent_x = 4000 #float('inf')
+    extent_y = 3000 #float('inf')
     max_allowed_building = float('inf')
     max_allowed_surface = float('inf')
 
@@ -247,10 +249,10 @@ def driverCityGML3DBuildingParser():
                             input_gml_filepath = input_gml_filepath,
                             citygml_building_namespace = citygml_building_namespace,
                             output_building_filepath = output_building_filepath,
-                            center_x=  center_x,
-                            center_y = center_y,
-                            spread_x = spread_x,
-                            spread_y = spread_y,
+                            origin_x = origin_x,
+                            origin_y=origin_y,
+                            extent_x=extent_x,
+                            extent_y=extent_y,
                             max_allowed_building=max_allowed_building,
                             max_allowed_surface=max_allowed_surface)
     return

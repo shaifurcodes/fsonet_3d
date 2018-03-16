@@ -54,6 +54,7 @@ class DynamicGraphGenerator(object):
 
     def setMaxLinkLength(self, max_long_link):
         self.max_long_link = max_long_link
+        return
 
     def loadBldgFile(self, input_file):
         self.bldg_bounding_box = np.zeros(shape = ( self.total_building, 6), dtype = np.float)
@@ -128,9 +129,6 @@ class DynamicGraphGenerator(object):
         self.fso_tx = []
         with open(self.input_bldg_file+'.roof', 'r') as surf_file:
             for bindx in range(self.total_building):
-                if self.isMinBldgPerimeter(bindx) is False:
-                    self.fso_tx.append(np.array( [(np.nan, np.nan, np.nan)], dtype=np.float) )
-                    continue
                 fso_tx_x, fso_tx_y, fso_tx_z = 0.0, 0.0, -float('inf')
                 _, surf_count = surf_file.readline().split(',')
                 for sindx in range(int(surf_count)):
@@ -140,7 +138,10 @@ class DynamicGraphGenerator(object):
                         x, y, z = np.float(x) - self.ref_x, np.float(y) - self.ref_y, np.float(z)
                         if fso_tx_z < z:
                             fso_tx_x, fso_tx_y, fso_tx_z = x, y, z
-                self.fso_tx.append( np.array([ (fso_tx_x, fso_tx_y, fso_tx_z+self.fso_tower_height_ft) ],\
+                if self.isMinBldgPerimeter(bindx) is False:
+                    self.fso_tx.append(np.array( [(np.nan, np.nan, np.nan)], dtype=np.float) )
+                else:
+                    self.fso_tx.append( np.array([ (fso_tx_x, fso_tx_y, fso_tx_z+self.fso_tower_height_ft) ],\
                                              dtype = np.float) )
         self.saveFSOTXLocs()
         return
@@ -168,42 +169,12 @@ class DynamicGraphGenerator(object):
                 ax.plot( [self.fso_tx[i][0, 0], self.fso_tx[j][0, 0] ], \
                          [self.fso_tx[i][0, 1], self.fso_tx[j][0, 1]], \
                          [self.fso_tx[i][0, 2], self.fso_tx[j][0, 2]],
-                         linestyle=':', color='b', linewidth=0.2 )
+                         linestyle=':', color='b', linewidth=1.0 )
         if showFSOTowers:
             for cur_fso_tx in self.fso_tx:
                 [x,y,z] = cur_fso_tx[0,:]
                 if np.isnan(x): continue
                 ax.plot( [x, x], [y, y], [z, z-self.fso_tower_height_ft], linestyle ='-', color='r', linewidth=4.0)
-        plt.show()
-        #plt.savefig('./test.png',  dpi = 300)
-        plt.close()
-        return
-
-    def visualizeBuildingBBox(self, showNormals = False, showFSOLinks = False):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        for bbox in self.bldg_bounding_box:
-            bldg_surfs = self.getBoundingFaces(bbox[0], bbox[1], bbox[2], bbox[3], bbox[4], bbox[5] )
-            for surf in bldg_surfs:
-                total_surf_points, _ = surf.shape
-                n = total_surf_points - 1
-                ax.plot(surf[:,0], surf[:, 1], surf[:, 2], linestyle = '-', color='k', linewidth = 1.0)
-        if showNormals:
-            for n_surfs in self.bldg_bbox_nsurf:
-                surf_count, _ = n_surfs.shape
-                for s_indx in range(surf_count):
-                    _, _, _, nx, ny, nz = n_surfs[ s_indx, : ]
-                    ax.plot([0.0, nx], [0.0, ny], [0.0, nz], linestyle=':', color='r', linewidth=1)
-
-        if showFSOLinks:
-            for i,j in self.fso_los:
-                x1, y1, z1  = self.fso_tx[i, :]
-                x2, y2, z2 =  self.fso_tx[j, :]
-                ax.plot([x1, x2], [y1, y2], [z1, z2], linestyle='-', color='r', linewidth=1)
-        ax.set_xlim3d(left=0-500,   right=self.max_x+500)
-        ax.set_ylim3d(bottom=0-500, top=self.max_y+500)
-        ax.set_zlim3d(bottom=self.min_z - 5, top=self.max_z+15)
-
         plt.show()
         #plt.savefig('./test.png',  dpi = 300)
         plt.close()
@@ -402,24 +373,11 @@ class DynamicGraphGenerator(object):
         #     show_surfaces = False
         n_surfs = self.getBldgSurfaceRepresentation( bindx)
         for sindx, n_surf in enumerate(n_surfs):
-            #-------------------------debug_trap--------------#
-            #1675.838184, 1815.891546, 44.3
-            # debug_p1 = np.array([1675.838184, 1815.891546, 44.3], dtype=np.float)
-            # if bindx==16 and sindx==43 and np.abs( np.sum(p1-debug_p1) ) < 0.001:
-            #     debug_trap = 1.0
-            #---------------------------------------------------#
-            # if show_surfaces:
-            #     print "\tDEBUG: current bindx, sindx: ", bindx, sindx
-            #     print "\tDEBUG: building# ", bindx, "p0: ", p0, " p1: ", p1
-            #     print "------------------\n\tcurrent surface#", sindx, " vals:\n", self.bldgs[bindx][sindx]
-            #     self.debugVisualizeLinePolygon(p0, p1, bindx, sindx)
             isIntersecting, iPoint = self.isSurfaceIntersecting(p0, p1, n_surf)
             if isIntersecting:
                 cur_surf = self.bldgs[bindx][sindx]
                 if self.isPointInsidePolygon(iPoint, cur_surf, n_surf):
-                    #print "\tDEBUG: is intersecting"
                     return True
-        #print "\tDEBUG: building not intersecting.."
         return False
 
     def isPolyhedronIntersecting(self, p0, p1, surf_pn):
@@ -476,9 +434,7 @@ class DynamicGraphGenerator(object):
             if self.isBuildingBBoxIntersecting(p0, p1,bindx):
                 stat_bldg_check += 1
                 if self.isBuildingSurfaceIntersecting(p0, p1, bindx):
-                    #print "\t bbox#, bldg#, etime: ", stat_bbox_check, stat_bldg_check, np.round((mytimer() - start_t), 3),"sec"
                     return False
-        #print "\t bbox#, bldg#, etime: ", stat_bbox_check, stat_bldg_check, np.round((mytimer() - start_t), 3), "sec"
         return True
 
     def isLink(self, p0, p1):
@@ -624,7 +580,7 @@ def driverDynamicGraphGenerator():
     input_file = 'world_trade_center'
     max_link_length_km = 1.0 # affects run time
     fso_tower_height_ft = 30.0
-    building_perimeter_req_ft = 100.0
+    building_perimeter_req_ft = 80.0
     building_per_bin = 5
     #-------end params-----------------#
 
@@ -635,9 +591,8 @@ def driverDynamicGraphGenerator():
     dgg.addFSOTowers(tower_height_ft=fso_tower_height_ft,
                      min_bldg_perimeter_req_ft=building_perimeter_req_ft)
     dgg.calculateLOS(building_per_hash_bin=building_per_bin)
-    print "print npairs: ", dgg.getNPairsForLOSCalc()
     print 'Execution time:', np.round((mytimer() - start_t), 3), "seconds"
-    #dgg.visualize3Dbuilding(showFSOLinks=True, showFSOTowers=True ) #comment this before final run
+    #dgg.visualize3Dbuilding(showFSOLinks=False, showFSOTowers=True ) #comment this before final run
     return
 
 if __name__ == '__main__':
