@@ -238,8 +238,8 @@ def driverCityGML3DBuildingParser():
     output_building_filepath = './world_trade_center'
     origin_x = wtc_approx_loc_x - 1000.0
     origin_y = wtc_approx_loc_y - 2000.0
-    extent_x = 4000 #float('inf')
-    extent_y = 3000 #float('inf')
+    extent_x_km = 6.0
+    extent_y_km = 3.0
     max_allowed_building = float('inf')
     max_allowed_surface = float('inf')
 
@@ -251,8 +251,8 @@ def driverCityGML3DBuildingParser():
                             output_building_filepath = output_building_filepath,
                             origin_x = origin_x,
                             origin_y=origin_y,
-                            extent_x=extent_x,
-                            extent_y=extent_y,
+                            extent_x=extent_x_km*3280.84,
+                            extent_y=extent_y_km*3280.84,
                             max_allowed_building=max_allowed_building,
                             max_allowed_surface=max_allowed_surface)
     return
