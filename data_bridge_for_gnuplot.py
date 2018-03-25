@@ -78,7 +78,7 @@ def numpyGraphTest():
     return
 if __name__ == '__main__':
     inputfile = './all_wtc_data/world_trade_center'
-    max_fso_link_km = 0.3
+    max_fso_link_km = 0.4
     gv = GnuVisualize(inputfile)
     gv.loadBldgSurfaces()
     gv.loadFSOLos(max_fso_link_km)
