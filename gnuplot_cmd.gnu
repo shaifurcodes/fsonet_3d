@@ -105,7 +105,8 @@ set ylabel 'Feet' offset 2, 0
 
 plot 'world_trade_center.backnu' using 1:2:($3-$1):($4-$2) w vectors back nohead lc rgbcolor 'red' lw 2,\
             'world_trade_center.fso' using 2:3 with points ps 0.8 pt 7 lc rgb "grey",\
-          'world_trade_center.covnu' using 2:3 with points ps 2.0 pt 7 lc rgb "blue"
+          'world_trade_center.covnu' using 2:3 with points ps 2.0 pt 7 lc rgb "blue",\
+          'world_trade_center.gatenu' using 2:3 with points ps 6.0 pt 5 lc rgb "black"
 
 
 ######################################gnuplot coverage ###########################################################################
