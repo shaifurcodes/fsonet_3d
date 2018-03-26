@@ -84,8 +84,31 @@ splot \
         'world_trade_center.bldgnu' using 1:2:3 w lines lc rgbcolor 'black' lw 1.0 lt 1
 
 
+#############################gnuplot points####################################################################
+clear
+reset
+unset key
+unset tics
 
-#################################################################################################################
+set datafile separator ','
+
+set terminal pngcairo  size 2000, 2000 lw 4.0  enhanced font "Arial-Bold, 54"
+set output 'locs.png'
+
+set xrange[-100:13000]
+set xtics 2000, 2000, 12000 rotate by 25 offset -4, -1
+set yrange[0:10000]
+set ytics 0,2000,10000
+
+set xlabel 'Feet' offset 0, 0.5
+set ylabel 'Feet' offset 2, 0
+
+plot 'world_trade_center.backnu' using 1:2:($3-$1):($4-$2) w vectors back nohead lc rgbcolor 'red' lw 2,\
+            'world_trade_center.fso' using 2:3 with points ps 0.8 pt 7 lc rgb "grey",\
+          'world_trade_center.covnu' using 2:3 with points ps 2.0 pt 7 lc rgb "blue"
+
+
+######################################gnuplot coverage ###########################################################################
 clear
 reset
 unset key
@@ -99,27 +122,7 @@ set xtics 0, 2000, 12000
 set yrange [0:10000]
 set ytics 0, 2000, 12000
 
-plot 'world_trade_center.covnu' using 1:2:($1*0+328.084) with circles lw 2.0 lc rgb "blue" fs transparent solid 0.18 noborder ,\
+plot 'world_trade_center.covnu' using 2:3:($1*0+328.084) with circles lw 2.0 lc rgb "blue" fs transparent solid 0.18 noborder ,\
       'world_trade_center.roofnu' using 1:2 w lines lc rgbcolor 'black' lw 2.0
 
-
-
-
 #################################################################################################################
-
-
-splot 'circle.dat' with circles lc rgb "blue" fs transparent solid 0.15 noborder
-
-circle_radius=100
-circle_x=0
-circle_y=0
-circle_z=0
-splot "+" using (circle_x+circle_radius*cos(2*pi*$0/99)):(circle_y+circle_radius*sin(2*pi*$0/99)):(circle_z) w l  lc rgb "red" fs transparent solid 0.15 noborder
-
-set datafile separator ','
-splot "circle.dat" linecolor "blue" pt 6 ps 100
-
-set style fill transparent solid 0.2 noborder
-plot 'circle.dat' using 1:2:(sqrt($3)) with circles, \
-     'circle.dat' using 1:2 with linespoints
-

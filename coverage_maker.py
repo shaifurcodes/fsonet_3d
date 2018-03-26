@@ -14,15 +14,17 @@ class CoverageMaker(object):
         self.max_x_grid = 0
         self.max_y_grid = 0
 
-
+        self.invalid_locs = None
         self.grid_coverage =  None
         self.loc_file = loc_file
         self.locs = None
         self.isLocTaken = None
+        self.loc_heap =  None
+
         self.setOverlapMatrix()
         self.setCoverageMatrix()
         self.loadLoc()
-        self.loc_heap =  None
+
         return
 
     def setOverlapMatrix(self):
@@ -50,7 +52,13 @@ class CoverageMaker(object):
         temp = np.loadtxt(self.loc_file, delimiter=',', dtype=np.float)
         self.locs = temp[:, 1:3]
         x, _ = self.locs.shape
+        invalid_locs_indx = np.argwhere(temp[:, 0] < 0)
+        #print invalid_locs[:, 0] # 875 1652 2815 2825 2829 3669 6463 6572 7688 8181 8182 8191 8193 8194 9689 9691
         self.isLocTaken = np.full( (x), False, dtype=np.bool)
+        self.invalid_locs = []
+        for i in invalid_locs_indx[:, 0]:
+            self.isLocTaken[i] = True
+            self.invalid_locs.append(int(i))
         return
 
     def getCoverageScore(self, indx):
@@ -81,7 +89,6 @@ class CoverageMaker(object):
 
 
     def getCurrentMaxCoverIndx(self):
-        #TODO: for each loc, find the extent on grid_coverge matrix and count the (False, True) i.e. uncovered values and push into the heapQ
         self.loc_heap = []
         indx = np.argwhere(self.isLocTaken==False)
         for i in indx[:, 0]:
@@ -121,10 +128,11 @@ class CoverageMaker(object):
 
     def saveCovers(self):
         with open(self.out_coverage_file, 'w') as f:
+            self.isLocTaken[self.invalid_locs] = False #ignore invalid locs
             indx = np.argwhere(self.isLocTaken == True)
             for i in indx[:, 0]:
                 x, y = self.locs[i,:]
-                f.write(str(x)+", "+str(y)+"\n")
+                f.write(str(i+1)+", "+str(x)+", "+str(y)+"\n")
         return
 
     def runSetCover(self):
@@ -169,7 +177,7 @@ class CoverageMaker(object):
             ax.add_artist(plt.Circle((x, y), self.r, color='b', fill=False))
         ax.set_xlim((0, self.area_x+10))
         ax.set_ylim((0, self.area_y+10))
-        fig.savefig('plotcircles2.png')
+        fig.savefig('plotcircles.png')
         return
 
 if __name__ == '__main__':
@@ -188,13 +196,13 @@ if __name__ == '__main__':
                        loc_file=loc_file,
                        out_coverage_file=out_coverage_file)
 
-    #gv.runSetCover()
+    gv.runSetCover()
     roof_file = './all_wtc_data/world_trade_center.roof'
     out_file = './all_wtc_data/world_trade_center.roofnu'
     tot_bldg = 9731
     ref_x = 979573.179945
     ref_y = 196978.123482
-    gv.saveBuilidngRoofs(roof_file, out_file, tot_bldg, ref_x, ref_y)
+    #gv.saveBuilidngRoofs(roof_file, out_file, tot_bldg, ref_x, ref_y)
     #gv.debugVisualize()
     #print gv.isLocTaken
 
